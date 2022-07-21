@@ -2,6 +2,8 @@
 import copy
 import os
 import torch
+import numpy as np
+import mcubes
 from src import loss, models, utils,  meta_modules as meta 
 
 def get_mesh(data_tuple):
@@ -25,10 +27,10 @@ def generate_params(batched_model, batch, dataset, test_time_optim_steps):
 
 class MetaGenerator:
     def __init__(self,
-                threshold,
                 exp_name,
                 dataset,
                 checkpoint,
+                threshold = 0,5,
                 device = torch.device("cuda"),
                 fast_lr = 1e-4,
                 out_features = 1,
@@ -115,4 +117,28 @@ class MetaGenerator:
 
         logits = torch.cat(logits_list, dim=1).numpy()
 
-        return -logits 
+        return -logits
+    def mesh_from_logits(self, logits):
+        logits = np.reshape(logits, (self.resolution,) * 3)
+
+        # padding to ba able to retrieve object close to bounding box bondary
+        logits = np.pad(logits, ((1, 1), (1, 1), (1, 1)), 'constant', constant_values=0)
+        threshold = np.log(self.threshold) - np.log(1. - self.threshold)
+        vertices, triangles = mcubes.marching_cubes(
+            logits, threshold)
+
+        # remove translation due to padding
+        vertices -= 1
+
+        # rescale to original scale
+        step = (self.max - self.min) / (self.resolution - 1)
+        vertices = np.multiply(vertices, step)
+        vertices += [self.min, self.min, self.min]
+
+        return trimesh.Trimesh(vertices, triangles)
+    def get_mesh(self, data_tuple):
+        logits, path_i = data_tuple
+        pred_mesh = self.mesh_from_logits(logits)
+        gt_mesh = trimesh.load(path_i+ '/isosurf_scaled.off', process=False)
+        print(path_i)
+        return (pred_mesh, gt_mesh)
