@@ -4,8 +4,9 @@ import os
 import torch
 import numpy as np
 import mcubes
+import time
 from src import loss, models, utils,  meta_modules as meta 
-
+import trimesh
 def get_mesh(data_tuple):
     logits, path_i = data_tuple
     pred_mesh = ref.mesh_from_logits(logits)
@@ -13,15 +14,15 @@ def get_mesh(data_tuple):
     print(path_i)
     return (pred_mesh, gt_mesh)
 def get_context(encoder, batch, dataset):
-    inputs = batch.get('inputs').cuda()
-    p_context,  context_y = get_levelset(batch, dataset)
-    context_x = encoder(p_context.cuda(), inputs)
+    inputs = batch.get('inputs')#.cuda()
+    p_context,  context_y = utils.get_levelset(batch, dataset)
+    context_x = encoder(p_context, inputs)
     return context_x, context_y
 @torch.no_grad()
 def generate_params(batched_model, batch, dataset, test_time_optim_steps):
     context_x, context_y = get_context(batched_model.encoder, batch, dataset)
     start_time = time.time()
-    params = batched_model.decoder.generate_params(context_x.cuda(), context_y.cuda(), intermediate=False, num_meta_steps=test_time_optim_steps)
+    params = batched_model.decoder.generate_params(context_x, context_y, intermediate=False, num_meta_steps=test_time_optim_steps)
     print(f"Adaptation in {time.time() - start_time} seconds")
     return params
 
@@ -30,7 +31,7 @@ class MetaGenerator:
                 exp_name,
                 dataset,
                 checkpoint,
-                threshold = 0,5,
+                threshold = 0.5,
                 device = torch.device("cuda"),
                 fast_lr = 1e-4,
                 out_features = 1,
@@ -41,16 +42,15 @@ class MetaGenerator:
         self.threshold = threshold
         self.device = device
         self.resolution = resolution
-        self.checkpoint_path = os.path.dirname(__file__) + '/experiments/{}/checkpoints/'.format( exp_name)
-        self.load_checkpoint(checkpoint)
+        self.checkpoint_path = '{}/checkpoints/'.format( exp_name)
         self.batch_points = batch_points
         self.min = -0.5
         self.max = 0.5
-
+        self.inner_steps = inner_steps
         self.grid_points_split = self.split_grid_points()
         self.minT, self.maxT = -0.1, 0.1
         self.exp_name = exp_name
-        self.exp =  f'experiments/{exp_name}/evaluation_{checkpoint}_@256/generation'
+        self.exp =  f'{exp_name}/evaluation_{checkpoint}_@256/generation'
 
         batched_model = self.get_model(out_features, 
                         fast_lr ,
@@ -63,14 +63,14 @@ class MetaGenerator:
         self.model.eval()
         self.ds = dataset
     def reset(self):
-        self.model = copy.deepcopy(self.original_model)
+        self.model = copy.deepcopy(self.original_model).to(self.device)
         
     def get_model (self, out_features, 
                     fast_lr = 1e-4,
                     inner_steps  = 5,
                     lr_type ='per_parameter',):
         feature_size = (1 +  16 + 32 + 64 + 128 + 128 ) * 7
-        encoder = models.ShapeNetPoints_sdf_encoder()
+        encoder = models.ShapeNetPoints_sdf_encoder(self.device)
         decoder = meta.ReLUFC_(in_features=feature_size, out_features=out_features,
                         num_hidden_layers=2, hidden_features=256)
         loss_fn = loss.sdf_L1_loss
@@ -97,7 +97,7 @@ class MetaGenerator:
         return torch.split(grid_coords, self.batch_points, dim=1)
     
     def load_checkpoint(self, batched_model, checkpoint):
-        path = f'experiments/{self.exp_name}/checkpoints/checkpoint_epoch_{checkpoint}.tar'
+        path = f'{self.exp_name}/checkpoints/checkpoint_epoch_{checkpoint}.tar'
         state_dict = batched_model.state_dict()
         state_dict.update(torch.load(path)['model_state_dict'])
         batched_model.load_state_dict(state_dict)
@@ -107,7 +107,7 @@ class MetaGenerator:
         self.reset()
         inputs = data['inputs'].to(self.device)
         batch_size = inputs.shape[0]
-        params = generate_params(self.model, data, self.ds, test_time_optim_steps)
+        params = self.generate_params(data,  test_time_optim_steps)
         logits_list = []
         for points in self.grid_points_split:
             with torch.no_grad():
@@ -142,3 +142,26 @@ class MetaGenerator:
         gt_mesh = trimesh.load(path_i+ '/isosurf_scaled.off', process=False)
         print(path_i)
         return (pred_mesh, gt_mesh)
+    def save_mesh(self,data_tupel):
+        logits, path_i = data_tupel
+
+        mesh = self.mesh_from_logits(logits)
+        path_split = path_i.split('/')
+        export_path = f'{self.exp}/{path_split[-2]}/{path_split[-1]}' 
+
+        if not os.path.exists(export_path):
+            os.makedirs(export_path)
+
+        mesh.export(export_path + 'surface_reconstruction.off')
+    def get_context(self, batch):
+        inputs = batch.get('inputs').to(self.device)
+        p_context,  context_y = utils.get_levelset(batch, self.ds)
+        context_x = self.model.encoder(p_context.to(self.device), inputs)
+        return context_x, context_y.to(self.device)
+    @torch.no_grad()
+    def generate_params(self, batch,test_time_optim_steps):
+        context_x, context_y = self.get_context(batch)
+        start_time = time.time()
+        params = self.model.decoder.generate_params(context_x, context_y, intermediate=False, num_meta_steps=test_time_optim_steps)
+        print(f"Adaptation in {time.time() - start_time} seconds")
+        return params
