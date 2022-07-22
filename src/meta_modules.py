@@ -41,10 +41,8 @@ class ReLUFC_(MetaModule):
 
 
 class MetaSDF(nn.Module):
-    def __init__(self, hypo_module, loss, init_lr=1e-1, num_meta_steps=3, first_order=False, lr_type='per_parameter', inner_reg = False, gamma = None):
+    def __init__(self, hypo_module, loss, init_lr=1e-1, num_meta_steps=3, first_order=False, lr_type='per_parameter'):
         super().__init__()
-        self.inner_reg = inner_reg
-        self.gamma = gamma
         self.hypo_module = hypo_module
         self.loss = loss
         self.num_meta_steps = num_meta_steps
