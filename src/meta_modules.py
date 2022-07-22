@@ -1,5 +1,7 @@
 from torchmeta.modules import (MetaModule, MetaSequential, MetaLinear)
 import torch.nn as nn
+import torch
+from collections import OrderedDict
 
 class BatchLinear(nn.Linear, MetaModule):
     '''A linear meta-layer that can deal with batched weight matrices and biases, as for instance output by a
