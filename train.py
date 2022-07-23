@@ -44,10 +44,10 @@ if __name__ == "__main__":
     batch_size = args.batch_size
     logger.log_kv('batch_size',batch_size )
     category = args.category 
-    split_file = '../if-net/shapenet/cat_splits.npz' if category is not None else 'if-net/shapenet/split.npz'
+    split_file = 'if-net/shapenet/cat_splits.npz' if category is not None else 'if-net/shapenet/split.npz'
     print(split_file)
     train_dataset = voxelized_data.VoxelizedDataset('train',
-                                            data_path = '../if-net/shapenet/data/',
+                                            data_path = 'if-net/shapenet/data/',
                                             voxelized_pointcloud= True,
                                             pointcloud_samples= args.pc_samples, 
                                             res=args.res,
@@ -64,7 +64,7 @@ if __name__ == "__main__":
                                             std_noise = args.std_noise
                                             )
     val_dataset = voxelized_data.VoxelizedDataset('val',
-                                            data_path = '../if-net/shapenet/data/',
+                                            data_path = 'if-net/shapenet/data/',
                                             voxelized_pointcloud= True,
                                             pointcloud_samples = args.pc_samples,
                                             res=args.res,
