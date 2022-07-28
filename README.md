@@ -37,3 +37,12 @@ Where `exp_name` is the path to the folder containing the trained model checkpoi
 
 ## Evaluation 
 The evaluation process is the same as in [IF-Net](). 
+
+## Pretrained Models
+
+Pretrained models can be found [here](https://drive.google.com/drive/folders/1ACokEAU91cuSaS4C8qdfjHo1KZV3hbuz?usp=sharing).
+
+## Contact
+
+For questions and comments regarding the code please contact [Amine Ouasfi]() via mail. (See Paper)
+
