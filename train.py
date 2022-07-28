@@ -34,7 +34,7 @@ if __name__ == "__main__":
     parser.add_argument('-pc_samples' , default=300, type=int)
     parser.add_argument('-res' , default=32, type=int)
     parser.add_argument('-n_workers' , default=8, type=int)
-    parser.add_argument('-batch_size' , default=4, type=int)
+    parser.add_argument('-batch_size' , default=8, type=int)
     parser.add_argument('-std_noise' , default=0., type=float)
     parser.add_argument('-noisy', dest='noisy', action='store_true')
     
