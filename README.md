@@ -5,13 +5,13 @@
 
 # Install 
 
-Please follow the instructions detailed in [IF-Net](). Then,  install the required  packages for this project by running:
+Please follow the instructions detailed in [IF-Net](https://github.com/Ouasfi/if-net/tree/stable). Then,  install the required  packages for this project by running:
 ```
 pip install torch==1.9.1+cu111 torchvision==0.10.1+cu111 torchaudio==0.9.1 -f https://download.pytorch.org/whl/torch_stable.html
 ```
 # Data Preparation
 
-The data preparation process is the same as in [IF-Net](). 
+The data preparation process is the same as in [IF-Net](https://github.com/Ouasfi/if-net/tree/stable). 
 
 To generate ground truth Signed distance values instead of occupancies run:
 ```
@@ -36,7 +36,7 @@ python generate.py -res 128 -pc_samples 3000 -batch_size 8 -inner_steps 5 -exp <
 Where `exp_name` is the path to the folder containing the trained model checkpoints.
 
 ## Evaluation 
-The evaluation process is the same as in [IF-Net](). 
+The evaluation process is the same as in [IF-Net](https://github.com/Ouasfi/if-net/tree/stable). 
 
 ## Pretrained Models
 
