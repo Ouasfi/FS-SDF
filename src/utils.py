@@ -6,8 +6,18 @@ import scipy
 import torch
 import pickle
 import csv
-
+import argparse
 def create_grid_points_from_bounds(minimun, maximum, res):
+    '''Create a 3D grid
+
+    Args:
+        minimun (int): minimun value in the grid 
+        maximum (int): maximun value in the grid
+        res (int): resolution
+
+    Returns:
+        np.array: 3D grid from meshgrid output (X,Y,Z )
+    '''    
     x = np.linspace(minimun, maximum, res)
     X, Y, Z = np.meshgrid(x, x, x, indexing='ij')
     X = X.reshape((np.prod(X.shape),))
@@ -17,18 +27,45 @@ def create_grid_points_from_bounds(minimun, maximum, res):
     points_list = np.column_stack((X, Y, Z))
     del X, Y, Z, x
     return points_list
-def get_levelset(batch, dataset):
+def get_levelset(batch, dataset, device = 'cuda'):
+    '''
+
+    Args:
+        batch (dict): Batch dict from the dataloader
+        dataset (torch Dataset ): dataset
+
+    Returns:
+        tupe(torch.tensor): levelset points and sdf
+    '''    
     dataset = dataset.dataset if isinstance(dataset, torch.utils.data.dataset.Subset) else dataset
     paths = batch.get('path')
-    p = [torch.from_numpy(dataset.get_level_set(path)).float() for path in paths]
-    p = torch.stack(p)
-    return (p, torch.zeros(p.shape[0], p.shape[1]))
+    p = batch.get('pointcloud')
+    if p is None:
+        p = torch.stack([torch.from_numpy(dataset.get_level_set(path)).float() for path in paths] )
+    return (p.to(device), torch.zeros(p.shape[0], p.shape[1], device = device))
 
 def freeze(model):
+    '''Freeze model params
+
+    Args:
+        model (nn.Module): Model to freeze
+
+    Returns:
+        nn.Module: the same model with frozen params(requires_grad = False)
+    '''    
     for p in model.parameters():
         p.requires_grad = False
     return model
 def get_exp(dataset, model):
+    '''A function to get model name as defined in IFNet (Chibane et al.)repository
+
+    Args:
+        dataset (Dataset): Dataset class
+        model (str): Model name
+
+    Returns:
+        [type]: [description]
+    '''    
     return 'i{}_dist-{}sigmas-{}v{}_m{}'.format(  'PC' + str(dataset.pointcloud_samples) if dataset.voxelized_pointcloud else 'Voxels',
                                     ''.join(str(e)+'_' for e in dataset.sample_distribution),
                                        ''.join(str(e) +'_'for e in dataset.sample_sigmas),
@@ -88,3 +125,33 @@ class DataLog:
                     except:
                         None
         self.log = data
+
+def get_parser(mode:str):
+    parser = argparse.ArgumentParser(
+                            description='Run Model')
+    parser.add_argument('-n_workers' , default=8, type=int)
+    parser.add_argument('-inner_steps' , default = 5, type=int)
+    parser.add_argument('-checkpoint' , default = 73, type=int)
+    parser.add_argument('-add_epochs' , default = 0, type=int)
+    parser.add_argument('-c','--category' , default=None, type=str)
+    parser.add_argument('-pc_samples' , default=300, type=int)
+    parser.add_argument('-res' , default=32, type=int)
+    parser.add_argument('-batch_size' , default=8, type=int)
+    parser.add_argument('-std_noise' , default=0., type=float)
+    parser.add_argument('-noisy', dest='noisy', action='store_true')
+    parser.add_argument('-data_path', default='if-net/shapenet/', type=str)
+    
+    if mode =='train':
+        parser.add_argument('-epochs' , default = 100, type=int)
+        parser.add_argument('-pretrained_model', default='ShapeNetPoints_sdf_sep_', type=str)
+        parser.add_argument('-fast_lr' , default = 1e-4, type=float)
+        parser.add_argument('-lr' , default = 1e-4, type=float)
+        parser.add_argument('-p_enc', dest='pretrained_encoder', action='store_true')
+        parser.add_argument('-p_dec', dest='pretrained_decoder', action='store_true')
+        parser.add_argument('-freeze', dest='freeze', action='store_true')
+        parser.add_argument("--local_rank", type=int)
+    elif mode =='eval':
+        parser.add_argument('-resume', dest='resume', action='store_true')
+        parser.add_argument('-exp', help='experiment name', type=str)
+        parser.add_argument('-save_path' , default='experiments', type=str)
+    return parser

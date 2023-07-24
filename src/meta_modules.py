@@ -43,14 +43,14 @@ class ReLUFC_(MetaModule):
 class MetaSDF(nn.Module):
     def __init__(self, hypo_module, loss, init_lr=1e-1, num_meta_steps=3, first_order=False, lr_type='per_parameter'):
         super().__init__()
-        self.hypo_module = hypo_module
-        self.loss = loss
+        self.hypo_module    = hypo_module
+        self.loss           = loss
         self.num_meta_steps = num_meta_steps
         
-        self.first_order = first_order
+        self.first_order    = first_order
 
-        self.lr_type = lr_type
-        if self.lr_type == 'static':
+        self.lr_type        = lr_type
+        if self.lr_type   == 'static':
             self.register_buffer('lr', torch.Tensor([init_lr]))
         elif self.lr_type == 'global':
             self.lr = nn.Parameter(torch.Tensor([init_lr]))
@@ -58,7 +58,7 @@ class MetaSDF(nn.Module):
             self.lr = nn.ParameterList([nn.Parameter(torch.Tensor([init_lr]))
                                         for _ in range(num_meta_steps)])
         elif self.lr_type == 'per_parameter':
-            self.lr = nn.ModuleList([])
+            self.lr         = nn.ModuleList([])
             hypo_parameters = hypo_module.parameters()
             for param in hypo_parameters:
                 self.lr.append(nn.ParameterList([nn.Parameter(torch.ones(param.size()) * init_lr)
@@ -66,29 +66,26 @@ class MetaSDF(nn.Module):
         elif self.lr_type == 'simple_per_parameter':
             self.lr = nn.ParameterList([nn.Parameter(torch.Tensor([init_lr])) for _ in hypo_module.parameters()])
          
-        sigma = torch.ones(2)
+        sigma      = torch.ones(2)
         self.sigma = nn.Parameter(sigma)
         
         self.sigma_outer = nn.Parameter(torch.ones(2))
-        #self.lmbda = nn.Parameter(torch.ones(1)*10.0)
 
         num_outputs = list(self.hypo_module.parameters())[-1].shape[0]
 
     def generate_params(self, context_x, context_y, num_meta_steps=None, **kwargs):
         meta_batch_size = context_x.shape[0]
-        num_meta_steps = num_meta_steps if num_meta_steps != None else self.num_meta_steps
+        num_meta_steps  = num_meta_steps if num_meta_steps != None else self.num_meta_steps
         with torch.enable_grad():
             adapted_parameters = OrderedDict()
             for name, param in self.hypo_module.meta_named_parameters():
                 adapted_parameters[name] = param[None, ...].repeat((meta_batch_size,) + (1,) * len(param.shape))
             for j in range(num_meta_steps):
-                #torch.cuda.empty_cache()
                 context_x.requires_grad_()
                 
                 predictions = self.hypo_module(context_x, params=adapted_parameters)
-                loss = self.loss(predictions, context_y, sigma=self.sigma,  **kwargs) 
-                #loss = losses[0]+ dense_loss if isinstance(losses, tuple) else losses + dense_loss
-                grads = torch.autograd.grad(loss, adapted_parameters.values(), allow_unused=False, create_graph=(True if (not self.first_order or j == num_meta_steps-1) else False))
+                loss        = self.loss(predictions, context_y, sigma=self.sigma,  **kwargs) 
+                grads       = torch.autograd.grad(loss, adapted_parameters.values(), allow_unused=False, create_graph=(True if (not self.first_order or j == num_meta_steps-1) else False))
                 for i, ((name, param), grad) in enumerate(zip(adapted_parameters.items(), grads)):                    
                     if self.lr_type in ['static', 'global']:
                         lr = self.lr

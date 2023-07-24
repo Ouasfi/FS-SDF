@@ -9,6 +9,13 @@ Please follow the instructions detailed in [IF-Net](https://github.com/Ouasfi/if
 ```
 pip install torch==1.9.1+cu111 torchvision==0.10.1+cu111 torchaudio==0.9.1 -f https://download.pytorch.org/whl/torch_stable.html
 ```
+# Demo (New)
+
+To run our pretrained model on your own shapes, place them in a directory and create a `.lst` file containing your file names. Then run , 
+```
+python demo.py -data_path [path to your data directory]  -exp <exp_name> -checkpoint <checkpoint> -inner_steps 5  -pc_samples 3000 -res 128 -batch_size 8 -save_path gen_dir/
+```
+where `res` is the resolution of the encoder's grid and `exp_name` is the path to the folder containing the trained model checkpoints. 
 # Data Preparation
 
 The data preparation process is the same as in [IF-Net](https://github.com/Ouasfi/if-net/tree/stable). 
